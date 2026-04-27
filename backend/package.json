@@ -1,0 +1,17 @@
+{
+  "name": "obd-ai-backend",
+  "version": "1.0.0",
+  "description": "OBD Data Analysis Backend Proxy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

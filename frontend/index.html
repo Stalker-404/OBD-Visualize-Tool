@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD数据可视化工具 - 智能控制开发中心</title>
+    
+    <!-- 引入必要的外部库 -->
+    <script src="src/tailwindcss.js"></script>
+    <script src="src/papaparse.min.js"></script>
+    <script src="src/chart.js"></script>
+    <script src="src/hammer.min.js"></script>
+    <script src="src/plotly-2.35.2.min.js"></script>
+    <script src="src/marked.min.js"></script>
+    <script src="src/o200k_base.js"></script>
+    <script src="src/chartjs-plugin-zoom.js"></script>
+
+    <style>
+        :root { --primary: #2563eb; }
+        body { background-color: #f1f5f9; color: #1e293b; font-family: system-ui, -apple-system, sans-serif; }
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .tab-btn { padding: 0.75rem 1.5rem; border-bottom: 2px solid transparent; transition: all 0.2s; font-weight: 600; }
+        .tab-btn.active { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
+        #columnList::-webkit-scrollbar { width: 6px; }
+        #columnList::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        input[type="range"] { accent-color: var(--primary); }
+        .axis-input { width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-size: 12px; outline: none; }
+        #cursorValuePanel { pointer-events: none; z-index: 100; background: rgba(15, 23, 42, 0.95); color: white; border-radius: 8px; border: 1px solid #334155; }
+        #mainChart3D { width: 100%; height: 100%; }
+        
+        /* AI Panel 样式 */
+        .ai-response { white-space: pre-wrap; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.6; }
+        .ai-response-error { color: #ef4444; }
+        .loading-dots:after { content: '...'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80%, 100% { content: '...'; } }
+
+        /* 密码验证界面样式 */
+        #passwordModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        #passwordModal.hidden { display: none; }
+        #passwordModal .modal-content { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); max-width: 400px; width: 90%; }
+    </style>
+</head>
+<body class="p-4 min-h-screen">
+    <!-- 密码验证界面 -->
+    <div id="passwordModal" class="hidden">
+        <div class="modal-content">
+            <h2 class="text-xl font-bold mb-4 text-center">请输入访问密码</h2>
+            <input type="password" id="passwordInput" class="w-full p-3 border border-gray-300 rounded mb-4" placeholder="密码">
+            <button id="passwordSubmit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">验证</button>
+            <p id="passwordError" class="text-red-500 mt-2 hidden">密码错误，请重试</p>
+        </div>
+    </div>
+
+    <div id="mainContent" class="hidden">
+        <div class="max-w-[1600px] mx-auto">
+        <header class="card p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-4">
+                <img src="src/icon/logo.png" alt="LOGO" class="h-12 w-auto object-contain">
+                <div>
+                    <h1 id="appTitle" class="text-2xl font-extrabold text-slate-800 tracking-tight">OBD数据可视化工具</h1>
+                    <p id="appSubtitle" class="text-slate-500 text-sm mt-1">测试版本</p>
+                </div>
+            </div>
+            
+			<div class="flex items-center gap-4 bg-slate-50 p-2 rounded-xl border border-dashed border-slate-300">
+			<div class="flex items-center gap-3 border-r pr-4 border-slate-200">
+
+				<!-- 模板下拉菜单 -->
+				<select id="templateSelector" align="center" onchange="handleSelectionChange(this.value)" class="bg-blue-50 text-blue-600 px-3 py-2 rounded-lg text-xs font-bold border border-blue-200 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500 appearance-none text-center">
+				</select>
+				<!-- 表头位置选择 -->
+				<div class="flex flex-row items-center gap-2">
+					<label class="text-[12px] font-bold text-slate-400" for="headerRow">表头行</label>
+					<input type="number" id="headerRow" value="1"
+						   class="w-20 bg-white border border-slate-200 px-2 py-1 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+				</div>
+				<!-- 分隔线 -->
+				<div class="w-px h-6 bg-slate-200 mx-1"></div>
+                <!-- 数据起始行选择 -->                
+                <div class="flex flex-row items-center gap-2">
+					<label class="text-[12px] font-bold text-slate-400" for="headerRow">数据行</label>
+					<input type="number" id="dataRow" value="2"
+					class="w-20 bg-white border border-slate-200 px-2 py-1 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+				</div>
+				<!-- 分隔线 -->
+				<div class="w-px h-6 bg-slate-200 mx-1"></div>
+                <!-- 时间列选择 -->                
+                <div class="flex flex-row items-center gap-2">
+					<label class="text-[12px] font-bold text-slate-400" for="timeColumn">时间列</label>
+					<input type="number" id="timeColumn" value="1"
+					class="w-20 bg-white border border-slate-200 px-2 py-1 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+				</div>                
+				<!-- 分隔线 -->
+				<div class="w-px h-6 bg-slate-200 mx-1"></div>
+				<!-- 编码选择 -->
+				<div class="flex flex-row items-center gap-2">
+					<label class="text-[12px] font-bold text-slate-400" for="fileEncoding">编码</label>
+					<select id="fileEncoding" class="bg-white border border-slate-200 px-2 py-1 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer text-slate-600">
+						<option value="GBK">GBK</option>
+						<option value="UTF-8" selected>UTF-8</option>
+					</select>
+				</div>
+			</div>
+            <!-- 文件选择 -->
+            <div class="relative flex items-center w-64 h-10 border border-slate-300 rounded-lg bg-white overflow-hidden">
+                <div class="bg-blue-600 text-white text-sm font-semibold px-4 py-2 flex-shrink-0">
+                    选择文件
+                </div>
+                <span id="fileNameDisplay" class="px-3 text-sm text-slate-500 truncate flex-1">
+                    未选择文件
+                </span>
+                <input type="file" id="csvFile" accept=".csv" onchange="handleFileChange(this)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+            </div>
+            <!-- 导入 -->
+            <button onclick="parseCSV()" class="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold hover:bg-slate-700 transition">导入</button>
+		</div>
+        </header>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <aside class="xl:col-span-3 space-y-6">
+                <!-- 轴名称与范围设置 -->
+                <div class="card p-5">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">轴名称与范围</h2>
+                    <div class="space-y-3 mb-4 pb-4 border-b">
+                        <input type="text" id="leftAxisName" placeholder="左Y轴名称" class="axis-input" oninput="updateCharts()">
+                        <input type="text" id="rightAxisName" placeholder="右Y轴名称" class="axis-input" oninput="updateCharts()">
+                    </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><p class="text-[10px] font-bold text-slate-400">左轴MIN</p><input type="number" id="yMin" class="axis-input" onchange="updateCharts()"></div>
+                            <div><p class="text-[10px] font-bold text-slate-400">左轴MAX</p><input type="number" id="yMax" class="axis-input" onchange="updateCharts()"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><p class="text-[10px] font-bold text-slate-400">右轴MIN</p><input type="number" id="y1Min" class="axis-input" onchange="updateCharts()"></div>
+                            <div><p class="text-[10px] font-bold text-slate-400">右轴MAX</p><input type="number" id="y1Max" class="axis-input" onchange="updateCharts()"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 折线图控制面板 -->
+                <div id="lineControls" class="card p-5 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">折线选择</h2>
+                        <label class="flex items-center gap-2 cursor-pointer bg-blue-50 px-2 py-1 rounded">
+                            <input type="checkbox" id="enableCursor" class="w-4 h-4 text-blue-600" onchange="updateCharts()">
+                            <span class="text-xs font-bold text-blue-700">数据光标</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer bg-blue-50 px-2 py-1 rounded">
+                            <input type="checkbox" id="separateCurves" class="w-4 h-4 text-blue-600" onchange="updateCharts()">
+                            <span class="text-xs font-bold text-blue-700">分离显示</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer bg-blue-50 px-2 py-1 rounded">
+                            <input type="checkbox" id="absTime" class="w-4 h-4 text-blue-600" onchange="rstCharts()">
+                            <span class="text-xs font-bold text-blue-700">相对时间</span>
+                        </label>
+                    </div>
+                    <div class="mb-4 relative">
+                        <input type="text" id="columnSearch" 
+                            class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
+                            placeholder="搜索数据列..." 
+                            oninput="filterColumns()">
+                    </div>
+                    <div id="columnList" class="space-y-2 overflow-y-auto max-h-[350px] pr-2"></div>
+                </div>
+
+                <!-- 散点图控制面板 -->
+                <div id="scatterControls" class="card p-5 hidden">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">2D散点图维度与过滤</h2>
+                    <div class="space-y-3 pb-4 border-b">
+                        <label class="text-xs font-bold text-slate-500 block">X 轴数据</label>
+                        <select id="scatterX" class="axis-input" onchange="updateCharts()"></select>
+                        <label class="text-xs font-bold text-slate-500 block">Y 轴数据</label>
+                        <select id="scatterY" class="axis-input" onchange="updateCharts()"></select>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-slate-500">条件过滤</label>
+                            <button onclick="addFilter()" class="text-blue-600 text-xs font-bold hover:underline">+ 添加</button>
+                        </div>
+                        <div id="filterList" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- 3D散点图控制面板 -->
+                <div id="scatter3DControls" class="card p-5 hidden">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">3D散点图维度与过滤</h2>
+                    <div class="space-y-3 pb-4 border-b">
+                        <label class="text-xs font-bold text-slate-500 block">X 轴数据</label>
+                        <select id="scatter3DX" class="axis-input" onchange="updateCharts()"></select>
+                        <label class="text-xs font-bold text-slate-500 block">Y 轴数据</label>
+                        <select id="scatter3DY" class="axis-input" onchange="updateCharts()"></select>
+                        <label class="text-xs font-bold text-slate-500 block">Z 轴数据</label>
+                        <select id="scatter3DZ" class="axis-input" onchange="updateCharts()"></select>
+                        <label class="text-xs font-bold text-slate-500 block">颜色系列</label>
+                        <select id="scatter3DColorScale" class="axis-input" onchange="updateCharts()">
+                            <option value="Viridis">冷色（Viridis）</option>
+                            <option value="Blues">蓝色系（Blues）</option>
+                            <option value="Cividis">青黄色（Cividis）</option>
+                            <option value="YlOrRd">暖色（YlOrRd）</option>
+                            <option value="Hot">高热（Hot）</option>
+                            <option value="Plasma">紫橙（Plasma）</option>
+                            <option value="Jet">彩虹（Jet）</option>
+                        </select>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-slate-500">条件过滤</label>
+                            <button onclick="addFilter3D()" class="text-blue-600 text-xs font-bold hover:underline">+ 添加</button>
+                        </div>
+                        <div id="filterList3D" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <button onclick="resetOrRefreshChart()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg mb-3">重置绘图</button>
+                <button onclick="exportPNG()" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-900 transition shadow-lg">导出 PNG 图表</button>
+            </aside>
+
+            <main class="xl:col-span-9 space-y-4">
+                <!-- 主图表区域 -->
+                <div class="card overflow-hidden relative">
+                    <div id="cursorValuePanel" class="absolute hidden top-4 right-4 p-4 shadow-2xl text-[11px] space-y-1 min-w-[200px]"></div>
+                    
+                    <div class="flex border-b border-slate-100 bg-slate-50/50">
+                        <button id="btnLine" onclick="switchTab('line')" class="tab-btn active">折线图</button>
+                        <button id="btnScatter" onclick="switchTab('scatter')" class="tab-btn">2D散点图</button>
+                        <button id="btnScatter3D" onclick="switchTab('scatter3d')" class="tab-btn">3D散点图</button>
+                    </div>
+                    <div class="p-4 h-[650px] relative">
+                        <canvas id="mainChart"></canvas>
+                        <div id="mainChart3D" class="hidden"></div>
+                    </div>
+                </div>
+
+                <!-- 时间轴滑块 -->
+                <div id="sliderContainer" class="card p-6 hidden">
+                    <div class="flex justify-between items-center mb-3">
+                        <span id="timeStart" class="text-xs font-mono font-bold text-blue-600">0.000s</span>
+                        <div class="text-[11px] text-slate-400 font-medium italic">
+                            操作提示：Ctrl + 滚轮缩放时间轴 | 激活光标后按住左键在图表上滑动
+                        </div>
+                        <span id="timeEnd" class="text-xs font-mono font-bold text-blue-600">0.000s</span>
+                    </div>
+                    <input type="range" id="timeSlider" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" min="0" max="1000" value="0">
+                </div>
+
+                <!-- AI数据分析面板 -->
+                <div class="card p-6 space-y-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-2 h-6 bg-blue-600 rounded-full"></div>
+                        <h2 class="text-lg font-bold text-slate-800">AI 数据分析</h2>
+                    </div>
+                    <div class="relative">
+                        <textarea id="aiPrompt" rows="3" 
+                            class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition"
+                            placeholder="输入分析指令，例如：'分析发动机转速和车速的关系，找出动力响应的异常点'"></textarea>
+
+                        <div class="absolute bottom-3 right-3 flex items-center gap-2">
+                            <label for="aiModelSelect" class="text-sm text-slate-600 font-medium whitespace-nowrap">大模型选择</label>
+                            <select id="aiModelSelect" class="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none shadow-sm">
+                            </select>
+                        <div class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm cursor-pointer hover:bg-slate-50 transition group" 
+                            onclick="toggleAttachData()">
+                            <svg id="attachIcon" xmlns="src/icon/attach.svg" class="h-4 w-4 text-slate-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                            </svg>
+                            <span id="attachText" class="text-xs font-bold text-slate-400 transition-colors select-none">附带当前窗口数据</span>
+                            <input type="checkbox" id="attachDataState" class="hidden">
+                        </div>
+                            <button onclick="sendToAI()" id="sendBtn" 
+                                class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition disabled:bg-slate-400">
+                                发送
+                            </button>
+                            <button onclick="stopAI()" id="stopBtn" class="hidden px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition">
+                                停止生成
+                            </button>
+                            <button onclick="clearChat()" id="clearBtn" 
+                                class="hidden bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 shadow-md transition disabled:bg-slate-400">
+                                清除对话
+                            </button>
+                        </div>
+
+                    </div>
+                    <div id="aiResponseContainer" class="hidden border-t pt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">AI 分析结果</span>
+                            <span id="aiStatus" class="text-xs text-blue-600 font-medium"></span>
+                        </div>
+                        <div id="aiOutput" class="ai-response p-4 bg-slate-900 text-slate-200 rounded-xl min-h-[100px] border border-slate-800"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div> <!-- 结束mainContent -->
+
+    <script src="src/obd-frontend.js"></script>
+</body>
+</html>

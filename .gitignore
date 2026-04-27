@@ -1,0 +1,9 @@
+# 忽略后端依赖和构建文件
+backend/node_modules/
+backend/api.json
+package-lock.json
+
+# 忽略前端LOGO和配置文件
+frontend/src/icon/logo.png
+frontend/src/icon/favicon.ico
+frontend/config.json

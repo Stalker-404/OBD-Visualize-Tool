@@ -1,0 +1,54 @@
+{
+    //配置AI分析中可供选择的大模型列表
+    "LLMmodels": [
+        {
+            //模型名称，需与后端api.json保持一致
+            "value": "deepseek-v3-2-251201",
+            //显示在网页上的模型名称
+            "label": "DeepSeek V3.2",
+            //上下文长度限制
+            "tokenLimit": 128000
+        },
+        {
+            "value": "doubao-seed-2-0-lite-260215",
+            "label": "豆包2.0 Lite",
+            "tokenLimit": 128000
+        }
+    ],
+    //配置网页显示的标题
+    "Branding": {
+        //浏览器标题
+        "pageTitle": "OBD数据可视化工具",
+        //网页Header主标题
+        "appTitle": "OBD数据可视化工具",
+        //网页Headr副标题
+        "appSubtitle": "V1.0"
+    },
+    //配置文件模板，方便快速解析csv数据
+    "FileTemplate": [
+        {
+            // 模板id
+            "value": "carscanner",
+            // 网页上显示的下拉选项名称
+            "label": "CarScanner",
+            // csv表头所在行
+            "headerRow": 1,
+            // csv有效数据起始行
+            "dataRow": 2,
+            // csv时间所在列
+            "timeColumn": 1,
+            // csv编码格式
+            "headerEncode": "UTF-8"
+        },
+        {
+            "value": "ha",
+            "label": "Hybrid Assistant",
+            "headerRow": 1,
+            "dataRow": 2,
+            "timeColumn": 2,
+            "headerEncode": "UTF-8"
+        }
+    ],
+    //网页访问密码，留空则跳过密码验证
+    "password": "password"
+}
