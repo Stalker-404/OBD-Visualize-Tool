@@ -7,12 +7,8 @@ services:
     working_dir: /app
     volumes:
       - ./backend:/app
-    environment:
-      - NODE_ENV=production
     # 直接运行启动命令，省去写 Dockerfile 的麻烦（简单场景适用）
     command: sh -c "npm install && node server.js"
-    env_file:
-      - .env
 
   # 前端 & 代理服务
   nginx:

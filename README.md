@@ -4,7 +4,9 @@
 特别鸣谢：Github Copilot, CodeX, Cursor, Google Gemini 
 
 ## 截图
-![图片说明](image/Screenshot_1.jpg)
+| 折线图 | 2D散点图 | 3D散点图 | AI辅助分析 |
+|  ---- | ---- | ---- | ---- |
+| <img src="image/screenshot-1.png" alt="折线图" style="width: 300px; height: auto;">  | <img src="image/screenshot-2.png" alt="2D散点图" style="width: 300px; height: auto;"> | <img src="image/screenshot-3.png" alt="3D散点图" style="width: 300px; height: auto;"> | <img src="image/screenshot-4.png" alt="AI辅助分析" style="width: 300px; height: auto;"> |
 
 ## 功能
 - [x] 读取OBD记录的csv终端数据流
