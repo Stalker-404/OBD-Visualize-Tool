@@ -622,10 +622,10 @@ function apply3DScatterChartConfig() {
         mode: 'markers',
         type: 'scatter3d',
         marker: {
-            size: 4,
-            color: filtered.map(row => row[zIdx]),
-            colorscale: colorScale,
-            opacity: 0.8
+            size: 4, // 固定点大小
+            color: filtered.map(row => row[zIdx]), // 根据Z轴值着色
+            colorscale: colorScale, // 使用选择的颜色系列
+            opacity: 0.8 // 设置点的透明度
         },
         name: `${headers[yIdx]} vs ${headers[xIdx]} vs ${headers[zIdx]}`
     };
@@ -639,7 +639,7 @@ function apply3DScatterChartConfig() {
             zaxis: { title: headers[zIdx] || 'Z轴' }
         }
     };
-
+    // 配置项：响应式布局，隐藏Plotly水印
     const config = { responsive: true, displaylogo: false };
     Plotly.react(refs.mainChart3D, [trace], layout, config);
 }
@@ -682,7 +682,7 @@ function updateCharts() {
     const isCursorEnabled = refs.enableCursor?.checked;
     
     // 根据分离模式调整轴标题和显示逻辑
-    const isSeparated = refs.separateCurves?.checked;
+    const isSeparated = refs.separateCurves?.checked && activeTab === 'line';
 
     let xAxisTitle = activeTab === 'line' ? (refs.absTime.checked ? "时间 (s)" : "时间 (HH:mm:ss.SSS)") : (headers[refs.scatterX.value] || "X轴数据");
     // 分离模式下，左轴标题可以显示通用名称，或者保持原样
