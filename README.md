@@ -108,7 +108,7 @@ cp frontend/src/icon/logo.png.example frontend/src/icon/logo.png
 
 ```bash
 cp backend/api.json.example backend/api.json
-vim frontend/config.json
+vim backend/api.json
 ```
 
 2. `api.json`配置文件全文参考如下
@@ -141,7 +141,7 @@ chmod -R 755 frontend
 3. **通过compose运行容器**
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 4. **访问地址:** 网址+12315端口，如 [192.168.31.99:12315](192.168.31.99:12315)
