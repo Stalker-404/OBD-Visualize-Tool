@@ -138,7 +138,7 @@ vim frontend/config.json
         },
         {
             "value": "ha",
-            "label": "丰田HA",
+            "label": "Hybrid Assistant",
             "headerRow": 1,
             "dataRow": 2,
             "timeColumn": 2,

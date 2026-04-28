@@ -183,6 +183,37 @@
                         </div>
                         <div id="filterList" class="space-y-2"></div>
                     </div>
+                    <div class="mt-4 pt-4 border-t border-slate-200">
+                        <div class="flex justify-between items-center mb-3">
+                            <label id="scatterStatsTitle" class="text-xs font-bold text-slate-500">当前 Y 轴数据统计</label>
+                        </div>
+                        <div id="scatterStatsBoard" class="grid grid-cols-2 gap-2">
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <div class="text-[11px] font-bold text-slate-400">平均值</div>
+                                <div id="scatterStatMean" class="mt-1 text-sm font-semibold text-slate-700">--</div>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <div class="text-[11px] font-bold text-slate-400">中位数</div>
+                                <div id="scatterStatMedian" class="mt-1 text-sm font-semibold text-slate-700">--</div>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <div class="text-[11px] font-bold text-slate-400">75% 分位数</div>
+                                <div id="scatterStatP75" class="mt-1 text-sm font-semibold text-slate-700">--</div>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <div class="text-[11px] font-bold text-slate-400">25% 分位数</div>
+                                <div id="scatterStatP25" class="mt-1 text-sm font-semibold text-slate-700">--</div>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <div class="text-[11px] font-bold text-slate-400">最大值</div>
+                                <div id="scatterStatMax" class="mt-1 text-sm font-semibold text-slate-700">--</div>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                <div class="text-[11px] font-bold text-slate-400">最小值</div>
+                                <div id="scatterStatMin" class="mt-1 text-sm font-semibold text-slate-700">--</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 3D散点图控制面板 -->

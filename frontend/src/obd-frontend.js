@@ -41,6 +41,13 @@ function initRefs() {
     refs.columnList = document.getElementById('columnList'); // 列选择列表容器
     refs.scatterX = document.getElementById('scatterX'); // 2D散点图 X 轴列下拉框
     refs.scatterY = document.getElementById('scatterY'); // 2D散点图 Y 轴列下拉框
+    refs.scatterStatsTitle = document.getElementById('scatterStatsTitle'); // 2D散点图统计标题
+    refs.scatterStatMean = document.getElementById('scatterStatMean'); // 2D散点图 Y 轴平均值
+    refs.scatterStatMedian = document.getElementById('scatterStatMedian'); // 2D散点图 Y 轴中位数
+    refs.scatterStatP75 = document.getElementById('scatterStatP75'); // 2D散点图 Y 轴75%分位数
+    refs.scatterStatP25 = document.getElementById('scatterStatP25'); // 2D散点图 Y 轴25%分位数
+    refs.scatterStatMax = document.getElementById('scatterStatMax'); // 2D散点图 Y 轴最大值
+    refs.scatterStatMin = document.getElementById('scatterStatMin'); // 2D散点图 Y 轴最小值
     refs.scatter3DX = document.getElementById('scatter3DX'); // 3D散点图 X 轴列下拉框
     refs.scatter3DY = document.getElementById('scatter3DY'); // 3D散点图 Y 轴列下拉框
     refs.scatter3DZ = document.getElementById('scatter3DZ'); // 3D散点图 Z 轴列下拉框
@@ -641,6 +648,76 @@ function getFilteredRawData() {
     });
 }
 
+function getFilteredScatterYValues() {
+    const yIdx = parseInt(refs.scatterY?.value, 10);
+    if (!rawData.length || Number.isNaN(yIdx)) return [];
+
+    return getFilteredRawData()
+        .map(row => Number(row[yIdx]))
+        .filter(value => Number.isFinite(value));
+}
+
+function getQuantile(sortedValues, quantile) {
+    if (!sortedValues.length) return null;
+    if (sortedValues.length === 1) return sortedValues[0];
+
+    const position = (sortedValues.length - 1) * quantile;
+    const lowerIndex = Math.floor(position);
+    const upperIndex = Math.ceil(position);
+    const weight = position - lowerIndex;
+
+    if (lowerIndex === upperIndex) {
+        return sortedValues[lowerIndex];
+    }
+
+    return sortedValues[lowerIndex] + (sortedValues[upperIndex] - sortedValues[lowerIndex]) * weight;
+}
+
+function formatScatterStatValue(value) {
+    if (!Number.isFinite(value)) return '--';
+    return value.toLocaleString('zh-CN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 6
+    });
+}
+
+function renderScatterStats() {
+    const statElements = [
+        refs.scatterStatMean,
+        refs.scatterStatMedian,
+        refs.scatterStatP75,
+        refs.scatterStatP25,
+        refs.scatterStatMax,
+        refs.scatterStatMin
+    ];
+
+    if (statElements.some(el => !el)) return;
+
+    const yIdx = parseInt(refs.scatterY?.value, 10);
+    const yLabel = Number.isNaN(yIdx) ? '' : headers[yIdx];
+    if (refs.scatterStatsTitle) {
+        refs.scatterStatsTitle.textContent = yLabel ? `${yLabel} 数据统计` : '当前 Y 轴数据统计';
+    }
+
+    const yValues = getFilteredScatterYValues();
+    if (!yValues.length) {
+        statElements.forEach(el => {
+            el.textContent = '--';
+        });
+        return;
+    }
+
+    const sortedValues = [...yValues].sort((a, b) => a - b);
+    const sum = yValues.reduce((total, value) => total + value, 0);
+
+    refs.scatterStatMean.textContent = formatScatterStatValue(sum / yValues.length);
+    refs.scatterStatMedian.textContent = formatScatterStatValue(getQuantile(sortedValues, 0.5));
+    refs.scatterStatP75.textContent = formatScatterStatValue(getQuantile(sortedValues, 0.75));
+    refs.scatterStatP25.textContent = formatScatterStatValue(getQuantile(sortedValues, 0.25));
+    refs.scatterStatMax.textContent = formatScatterStatValue(sortedValues[sortedValues.length - 1]);
+    refs.scatterStatMin.textContent = formatScatterStatValue(sortedValues[0]);
+}
+
 // 读取3D散点图的过滤条件并应用到原始数据
 function getFilteredRawData3D() {
     const filterItems = Array.from(document.querySelectorAll('#filterList3D > div')).map(div => ({
@@ -669,11 +746,19 @@ function apply3DScatterChartConfig() {
     const zIdx = refs.scatter3DZ.value;
     const colorScale = refs.scatter3DColorScale.value || 'Viridis';
     const filtered = getFilteredRawData3D();
-
+    
+    // 解析时间数据并根据相对/绝对时间设置调整显示
+    const isAbs = refs.absTime.checked;
+    const timeData = filtered.map(row => {
+        const t = parseTimeString(row[0]);
+        return isAbs ? t - firstTimestamp : t;
+    });
+    
     const trace = {
         x: filtered.map(row => row[xIdx]),
         y: filtered.map(row => row[yIdx]),
         z: filtered.map(row => row[zIdx]),
+        customdata: timeData.map(t => formatTime(t)),
         mode: 'markers',
         type: 'scatter3d',
         marker: {
@@ -682,7 +767,12 @@ function apply3DScatterChartConfig() {
             colorscale: colorScale, // 使用选择的颜色系列
             opacity: 0.8 // 设置点的透明度
         },
-        name: `${headers[yIdx]} vs ${headers[xIdx]} vs ${headers[zIdx]}`
+        name: `${headers[yIdx]} vs ${headers[xIdx]} vs ${headers[zIdx]}`,
+        hovertemplate:
+            `${headers[xIdx]}: %{x}<br>` +
+            `${headers[yIdx]}: %{y}<br>` +
+            `${headers[zIdx]}: %{z}<br>` +
+            `${headers[0] || '时间'}: %{customdata}<extra></extra>`
     };
 
     const layout = {
@@ -701,6 +791,7 @@ function apply3DScatterChartConfig() {
 
 // 更新图表
 function updateCharts() {
+    renderScatterStats();
 
     //保存当前缩放
     let currentMin = null;
