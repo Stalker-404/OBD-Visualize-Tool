@@ -265,7 +265,7 @@ const cursorPlugin = {
     }
 };
 
-// 切换标签页
+// 切换标签页，根据选择显示不同的图表和控制面板
 function switchTab(tab) {
     const prevTab = activeTab;
     activeTab = tab;
@@ -285,35 +285,86 @@ function switchTab(tab) {
     updateCharts();
 }
 
-// 解析时间字符串，支持多种格式
+// 解析时间字符串支持多种格式（纯秒数、HH:mm:ss.SSS、带单位的时间字符串等）
 function parseTimeString(str) {
-    if (str === null || str === undefined) return 0;
-    let cleanStr = String(str).replace(/"/g, '').trim();
+    if (str === null || str === undefined) return 0;// 处理 null 或 undefined 输入
+    let cleanStr = String(str).replace(/"/g, '').trim();// 去除引号和两端空白
+    
+    // 如果字符串中包含空格，取最后一个部分（假设是时间部分）
     if (cleanStr.includes(' ')) {
         cleanStr = cleanStr.split(/\s+/)[1]; 
     }
+    
+    // 如果字符串中不包含冒号，尝试直接解析数字后的单位(s/ms/m/h)，无单位默认为秒
+    if (!cleanStr.includes(':')) {
+
+        let unit = null;
+        let value = null;
+        
+        // 如果表头包含时间单位提示，优先按照表头单位解析,例如表头为 "Time_ms" 则解析 "150" 为 0.15 秒
+        if (headers.length > 0) {
+        const unitHeaderMatch = headers[0].match(/(_ms|_s|m|_h|\(s\)|\(ms\)|\(m\)|\(h\))$/);
+            if (unitHeaderMatch) {
+                unit = unitHeaderMatch[1].toLowerCase();
+            }
+        }
+
+        // 尝试匹配时间列中的纯数字字符串，如果表头有单位则按照表头单位解析，否则默认为秒
+        const pureNumberMatch = cleanStr.match(/^[0-9]+(?:\.[0-9]+)?/);
+        if (pureNumberMatch) {
+            value = parseFloat(pureNumberMatch[0]) || 0; // 解析数值部分，如果解析失败则默认为0
+            if (unit === 'ms' || unit === '(ms)') return value / 1000;
+            if (unit === 's'  || unit === '(s)')  return value;
+            if (unit === 'm'  || unit === '(m)')  return value * 60;
+            if (unit === 'h'  || unit === '(h)')  return value * 3600;
+        }
+
+        // 尝试匹配时间列中的数值+单位格式，例如 "150ms"、"2.5s"、"1m"、"0.5h"，提取单位并转换为秒
+        const unitMatch = cleanStr.match(/(ms|s|m|h)$/i);
+        if (unitMatch) {
+            // 优先使用表头单位，如果表头没有单位再使用时间字符串中的单位进行转换
+            if(!unit){
+                unit = unitMatch[1].toLowerCase();
+                console.warn(`时间字符串单位提取成功`);
+                if (unit === 'ms') return value / 1000;
+                if (unit === 's')  return value;
+                if (unit === 'm')  return value * 60;
+                if (unit === 'h')  return value * 3600;
+            }
+                return parseFloat(cleanStr) || 0; // 如果无法识别单位，尝试直接解析数值部分
+        }
+    }
+
     const parts = cleanStr.split(':');
-    if (parts.length < 3) return 0;
-    const h = parseFloat(parts[0]) || 0;
-    const m = parseFloat(parts[1]) || 0;
-    const sParts = parts[2].split('.');
-    const s = parseFloat(sParts[0]) || 0;
+    if (parts.length < 3) {
+        return parseFloat(cleanStr) || 0;
+    }
+
+    const h = parseFloat(parts[0]) || 0; // 小时部分,如果解析失败则默认为0
+    const m = parseFloat(parts[1]) || 0; // 分钟部分,如果解析失败则默认为0
+    const sParts = parts[2].split('.');  // 秒和毫秒部分,如果没有小数点则秒部分为整个字符串
+    const s = parseFloat(sParts[0]) || 0;// 秒部分,如果解析失败则默认为0
     let ms = 0;
+
+    // 如果存在毫秒部分，解析并转换为秒，如果解析失败则默认为0
     if (sParts.length > 1) {
         ms = parseFloat(sParts[1]) / Math.pow(10, sParts[1].length);
     }
+
+    // 将小时、分钟、秒和毫秒转换为总秒数
     return h * 3600 + m * 60 + s + ms;
 }
 
-// 格式化时间显示
+// 格式化时间显示，根据当前是相对时间还是绝对时间切换显示格式
 function formatTime(value) {
     if (refs.absTime.checked) {
         return value.toFixed(3) + 's';
     } else {
-        const hours = Math.floor(value / 3600);
-        const minutes = Math.floor((value % 3600) / 60);
-        const seconds = Math.floor(value % 60);
-        const milliseconds = Math.floor((value % 1) * 1000);
+        const hours = Math.floor(value / 3600);             // 小时部分
+        const minutes = Math.floor((value % 3600) / 60);    // 分钟部分
+        const seconds = Math.floor(value % 60);             // 秒部分
+        const milliseconds = Math.floor((value % 1) * 1000);// 毫秒部分
+        // 格式化为 HH:mm:ss.SSS 格式，确保各部分位数正确
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
     }
 }
@@ -501,10 +552,14 @@ function removeFilter3D(id) {
 // 折线图 case：构建数据集与动态轴配置
 function applyLineChartConfig(config, customL, customR, isSeparated) {
     const isAbs = refs.absTime.checked;
+    
+    // 计算时间数据并更新总时间范围
     const timeData = rawData.map(row => {
         const t = parseTimeString(row[0]);
         return isAbs ? t - firstTimestamp : t;
     });
+
+    // 更新全局时间范围，供时间滑块使用
     totalTimeRange.min = Math.min(...timeData);
     totalTimeRange.max = Math.max(...timeData);
 

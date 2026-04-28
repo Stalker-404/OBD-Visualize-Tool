@@ -4,9 +4,9 @@
 特别鸣谢：Github Copilot, CodeX, Cursor, Google Gemini 
 
 ## 截图
-| 折线图 | 2D散点图 | 3D散点图 | AI辅助分析 |
-|  ---- | ---- | ---- | ---- |
-| <img src="image/screenshot-1.png" alt="折线图" style="width: 300px; height: auto;">  | <img src="image/screenshot-2.png" alt="2D散点图" style="width: 300px; height: auto;"> | <img src="image/screenshot-3.png" alt="3D散点图" style="width: 300px; height: auto;"> | <img src="image/screenshot-4.png" alt="AI辅助分析" style="width: 300px; height: auto;"> |
+| 折线图                                                                              | 2D散点图                                                                              | 3D散点图                                                                              | AI辅助分析                                                                              |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| <img src="image/screenshot-1.png" alt="折线图" style="width: 300px; height: auto;"> | <img src="image/screenshot-2.png" alt="2D散点图" style="width: 300px; height: auto;"> | <img src="image/screenshot-3.png" alt="3D散点图" style="width: 300px; height: auto;"> | <img src="image/screenshot-4.png" alt="AI辅助分析" style="width: 300px; height: auto;"> |
 
 ## 功能
 - [x] 读取OBD记录的csv终端数据流
@@ -18,6 +18,59 @@
 
 ## TODO
 - [ ] AI辅助数据清洗
+
+## 支持的数据格式
+Car Scanner、Hybrid Assistant等OBD监控工具导出的带时间戳的csv格式文件
+
+### 绝对时间戳解析
+
+对于带绝对时间戳的数据，会将日期删去仅留下时间，支持的绝对时间戳数据格式如下：
+
+| Time                    | Data 1 | Data 2 | Data n |
+| ----------------------- | ------ | ------ | ------ |
+| 2026-04-28 11:08:00.001 | 255    | 000    | xxx    |
+| 2026-04-28 11:08:00.002 | 256    | 111    | xxx    |
+
+### 相对时间戳解析
+
+对于带相对时间戳的数据，会根据数据末尾的单位将时间转换成秒，无单位默认为秒，支持毫秒(ms)、秒(s)、分(m)、小时(h)四种时间单位，相对时间戳数据格式如下：
+
+1. **表头带单位：**优先按表头的单位解析时间，支持下划线和半角括号两种格式
+
+| Time (s) | Data 1 | Data 2 | Data n |
+| -------- | ------ | ------ | ------ |
+| 0.001    | 255    | 000    | xxx    |
+| 0.002    | 256    | 111    | xxx    |
+
+| Time_s | Data 1 | Data 2 | Data n |
+| ------ | ------ | ------ | ------ |
+| 0.001s | 255    | 000    | xxx    |
+| 0.002s | 256    | 111    | xxx    |
+
+2. 数字后带单位：按数字后单位解析时间，若表头同时带单位则优先按表头的单位解析
+
+| Time   | Data 1 | Data 2 | Data n |
+| ------ | ------ | ------ | ------ |
+| 0.001s | 255    | 000    | xxx    |
+| 0.002s | 256    | 111    | xxx    |
+
+| Time | Data 1 | Data 2 | Data n |
+| ---- | ------ | ------ | ------ |
+| 1ms  | 255    | 000    | xxx    |
+| 2ms  | 256    | 111    | xxx    |
+
+2. 无单位：默认单位为秒
+
+| Time  | Data 1 | Data 2 | Data n |
+| ----- | ------ | ------ | ------ |
+| 0.001 | 255    | 000    | xxx    |
+| 0.002 | 256    | 111    | xxx    |
+
+**PS：** 有些采集软件会将日期和时间分列排列（如Hybrid Assistant），注意选择正确的时间列
+
+### 时间戳格式转换
+
+通过勾选/取消勾选相对时间，可以将绘图时显示的时间格式在相对/绝对时间之间转换
 
 ## 软件架构
 1. **前端：** 静态HTML网页，Nginx 驱动（**默认12315端口**）
@@ -85,7 +138,7 @@ vim frontend/config.json
         },
         {
             "value": "ha",
-            "label": "Hybrid Assistant",
+            "label": "丰田HA",
             "headerRow": 1,
             "dataRow": 2,
             "timeColumn": 2,
@@ -144,4 +197,4 @@ chmod -R 755 frontend
 docker compose up -d
 ```
 
-4. **访问地址:** 网址+12315端口，如 [192.168.31.99:12315](192.168.31.99:12315)
+4. **访问地址:** 网址+12315端口，如 [http://192.168.31.99:12315](http://192.168.31.99:12315)
