@@ -376,6 +376,65 @@ function formatTime(value) {
     }
 }
 
+// 解析时间范围输入框中的值；相对时间模式下默认按秒处理，避免被表头单位推断影响
+function parseTimeRangeInput(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return NaN;
+
+    if (!refs.absTime.checked) {
+        return parseTimeString(text);
+    }
+
+    if (text.includes(':')) {
+        return parseTimeString(text);
+    }
+
+    const unitMatch = text.match(/^(-?\d+(?:\.\d+)?)(ms|s|m|h)?$/i);
+    if (!unitMatch) return NaN;
+
+    const amount = parseFloat(unitMatch[1]);
+    const unit = (unitMatch[2] || 's').toLowerCase();
+
+    if (!Number.isFinite(amount)) return NaN;
+    if (unit === 'ms') return amount / 1000;
+    if (unit === 'm') return amount * 60;
+    if (unit === 'h') return amount * 3600;
+    return amount;
+}
+
+function clampTimeRangeValue(value) {
+    return Math.min(totalTimeRange.max, Math.max(totalTimeRange.min, value));
+}
+
+function applyTimeRangeInputs() {
+    if (!chart || activeTab !== 'line' || !chart.scales.x) return;
+
+    const parsedStart = parseTimeRangeInput(refs.timeStart.value);
+    const parsedEnd = parseTimeRangeInput(refs.timeEnd.value);
+
+    if (!Number.isFinite(parsedStart) || !Number.isFinite(parsedEnd)) {
+        updateTimeLabels();
+        return;
+    }
+
+    let newMin = clampTimeRangeValue(parsedStart);
+    let newMax = clampTimeRangeValue(parsedEnd);
+
+    if (newMin > newMax) {
+        [newMin, newMax] = [newMax, newMin];
+    }
+
+    if (newMin === newMax) {
+        updateTimeLabels();
+        return;
+    }
+
+    chart.options.scales.x.min = newMin;
+    chart.options.scales.x.max = newMax;
+    chart.update('none');
+    syncSliderToChart();
+}
+
 // 解析CSV文件
 function parseCSV() {
     syncImportSettingsFromView();
@@ -934,6 +993,7 @@ function updateCharts() {
             chart.options.scales.x.min = currentMin;
             chart.options.scales.x.max = currentMax;
             chart.update('none'); // 'none' 模式避免动画干扰，直接跳转
+            syncSliderToChart();
         }
     }
 }
@@ -984,16 +1044,30 @@ function syncSliderToChart() {
     const viewRange = scale.max - scale.min;
     if (totalWidth > viewRange) {
         slider.value = ((scale.min - totalTimeRange.min) / (totalWidth - viewRange)) * 1000;
+    } else {
+        slider.value = 0;
     }
     updateTimeLabels();
 }
 
 // 更新时间标签
 function updateTimeLabels() {
+    if (!chart || !chart.scales.x) return;
     const scale = chart.scales.x;
-    refs.timeStart.innerText = formatTime(scale.min || 0);
-    refs.timeEnd.innerText = formatTime(scale.max || 0);
+    refs.timeStart.value = formatTime(scale.min || 0);
+    refs.timeEnd.value = formatTime(scale.max || 0);
 }
+
+refs.timeStart.addEventListener('change', applyTimeRangeInputs);
+refs.timeEnd.addEventListener('change', applyTimeRangeInputs);
+refs.timeStart.addEventListener('blur', applyTimeRangeInputs);
+refs.timeEnd.addEventListener('blur', applyTimeRangeInputs);
+refs.timeStart.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyTimeRangeInputs();
+});
+refs.timeEnd.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyTimeRangeInputs();
+});
 
 // 导出PNG图像
 function exportPNG() {

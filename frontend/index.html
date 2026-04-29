@@ -24,6 +24,23 @@
         #columnList::-webkit-scrollbar { width: 6px; }
         #columnList::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         input[type="range"] { accent-color: var(--primary); }
+        .time-range-input {
+            width: 7.5rem;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #2563eb;
+            text-align: center;
+            outline: none;
+        }
+        .time-range-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
         .axis-input { width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-size: 12px; outline: none; }
         #cursorValuePanel { pointer-events: none; z-index: 100; background: rgba(15, 23, 42, 0.95); color: white; border-radius: 8px; border: 1px solid #334155; }
         #mainChart3D { width: 100%; height: 100%; }
@@ -270,11 +287,11 @@
                 <!-- 时间轴滑块 -->
                 <div id="sliderContainer" class="card p-6 hidden">
                     <div class="flex justify-between items-center mb-3">
-                        <span id="timeStart" class="text-xs font-mono font-bold text-blue-600">0.000s</span>
+                        <input id="timeStart" type="text" class="time-range-input" value="0.000s" inputmode="decimal">
                         <div class="text-[11px] text-slate-400 font-medium italic">
-                            操作提示：Ctrl + 滚轮缩放时间轴 | 激活光标后按住左键在图表上滑动
+                            操作提示：Ctrl + 滚轮缩放时间轴 | 左键拖动 | 手动输入时间定位
                         </div>
-                        <span id="timeEnd" class="text-xs font-mono font-bold text-blue-600">0.000s</span>
+                        <input id="timeEnd" type="text" class="time-range-input" value="0.000s" inputmode="decimal">
                     </div>
                     <input type="range" id="timeSlider" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" min="0" max="1000" value="0">
                 </div>
