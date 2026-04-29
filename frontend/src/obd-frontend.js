@@ -83,6 +83,11 @@ function initRefs() {
     refs.templateSelector = document.getElementById('templateSelector'); // 文件模板下拉菜单
     refs.appTitle = document.getElementById('appTitle'); // 页面主标题
     refs.appSubtitle = document.getElementById('appSubtitle'); // 页面副标题
+    refs.importSuccessModal = document.getElementById('importSuccessModal'); // 导入成功提示框
+    refs.importStatusIcon = document.getElementById('importStatusIcon'); // 导入状态图标
+    refs.importStatusTitle = document.getElementById('importStatusTitle'); // 导入状态标题
+    refs.importSuccessMessage = document.getElementById('importSuccessMessage'); // 导入成功提示文本
+    refs.importSuccessConfirm = document.getElementById('importSuccessConfirm'); // 导入成功确认按钮
 }
 
 // 将导入配置状态写回界面（表头行、数据起始行、编码）
@@ -115,6 +120,23 @@ function renderFileNameState() {
     refs.fileNameDisplay.textContent = uiState.selectedFileName;
     refs.fileNameDisplay.classList.toggle('text-slate-700', uiState.selectedFileName !== "未选择文件");
     refs.fileNameDisplay.classList.toggle('text-slate-500', uiState.selectedFileName === "未选择文件");
+}
+
+function showImportStatusModal(title, message, isSuccess = true) {
+    if (!refs.importSuccessModal || !refs.importSuccessMessage || !refs.importStatusIcon || !refs.importStatusTitle) return;
+    refs.importStatusTitle.textContent = title;
+    refs.importSuccessMessage.textContent = message;
+    refs.importStatusIcon.textContent = isSuccess ? 'OK' : '!';
+    refs.importStatusIcon.classList.toggle('bg-emerald-100', isSuccess);
+    refs.importStatusIcon.classList.toggle('text-emerald-600', isSuccess);
+    refs.importStatusIcon.classList.toggle('bg-red-100', !isSuccess);
+    refs.importStatusIcon.classList.toggle('text-red-600', !isSuccess);
+    refs.importSuccessModal.classList.remove('hidden');
+}
+
+function hideImportSuccessModal() {
+    if (!refs.importSuccessModal) return;
+    refs.importSuccessModal.classList.add('hidden');
 }
 
 // 应用页面品牌信息（标题、主标题、副标题）
@@ -166,6 +188,12 @@ syncImportSettingsFromView();                            //同步导入设置状
 uiState.attachDataEnabled = refs.attachDataState.checked;//同步附带数据开关状态
 renderAttachDataState();                                 //渲染附带数据开关状态
 renderFileNameState();                                   //渲染文件名显示状态
+if (refs.importSuccessConfirm) refs.importSuccessConfirm.addEventListener('click', hideImportSuccessModal);
+if (refs.importSuccessModal) {
+    refs.importSuccessModal.addEventListener('click', (event) => {
+        if (event.target === refs.importSuccessModal) hideImportSuccessModal();
+    });
+}
 
 // 异步加载配置并检查密码
 (async () => {
@@ -445,7 +473,7 @@ function parseCSV() {
     const dataIndex = (dataRowSetting > headerRowSetting ? dataRowSetting : headerRowSetting + 1) - 1;
     const timeColumnSetting = uiState.importSettings.timeColumn;
     const timeColumnIndex = (timeColumnSetting > 0 ? timeColumnSetting : 1) - 1; 
-    if (!file) return alert("请先选择文件");
+    if (!file) return showImportStatusModal("导入失败", "请先选择文件", false);;
 
     Papa.parse(file, {
         header: false,
@@ -455,7 +483,7 @@ function parseCSV() {
         complete: function(results) {
             const allData = results.data;
             if (allData.length <= headerIndex) {
-                return alert("读取到的行数不足，请检查表头行设置是否正确");
+                return showImportStatusModal("导入失败", "读取到的行数不足，请检查表头行设置是否正确", false);
             }
             // 提取表头并去除多余空白
             headers = allData[headerIndex].map(h => h ? String(h).trim() : "");
@@ -478,11 +506,12 @@ function parseCSV() {
                     firstTimestamp = parseTimeString(rawData[0][0]);
                     initControls();
                     switchTab('line');
+                    showImportStatusModal("导入成功", `${file.name} 导入成功`);
                 } catch (e) {
-                    alert("时间数据解析失败");
+                    showImportStatusModal("导入失败", "时间数据解析失败", false);
                 }
             } else {
-                alert("解析到的数据行为空");
+                showImportStatusModal("导入失败", "解析到的数据行为空", false);
             }
         }
     });
