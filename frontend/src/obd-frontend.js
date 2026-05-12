@@ -48,6 +48,7 @@ function initRefs() {
     refs.scatterStatP25 = document.getElementById('scatterStatP25'); // 2D散点图 Y 轴25%分位数
     refs.scatterStatMax = document.getElementById('scatterStatMax'); // 2D散点图 Y 轴最大值
     refs.scatterStatMin = document.getElementById('scatterStatMin'); // 2D散点图 Y 轴最小值
+    refs.scatterStatRatio = document.getElementById('scatterStatRatio'); // 2D散点图当前点数占比
     refs.scatter3DX = document.getElementById('scatter3DX'); // 3D散点图 X 轴列下拉框
     refs.scatter3DY = document.getElementById('scatter3DY'); // 3D散点图 Y 轴列下拉框
     refs.scatter3DZ = document.getElementById('scatter3DZ'); // 3D散点图 Z 轴列下拉框
@@ -776,7 +777,9 @@ function renderScatterStats() {
         refs.scatterStatP75,
         refs.scatterStatP25,
         refs.scatterStatMax,
-        refs.scatterStatMin
+        refs.scatterStatMin,
+        refs.scatterStatRatio
+
     ];
 
     if (statElements.some(el => !el)) return;
@@ -795,8 +798,8 @@ function renderScatterStats() {
         return;
     }
 
-    const sortedValues = [...yValues].sort((a, b) => a - b);
-    const sum = yValues.reduce((total, value) => total + value, 0);
+    const sortedValues = [...yValues].sort((a, b) => a - b);  // 对数据进行排序以计算中位数和四分位数
+    const sum = yValues.reduce((total, value) => total + value, 0); // 计算总和以计算平均值   
 
     refs.scatterStatMean.textContent = formatScatterStatValue(sum / yValues.length);
     refs.scatterStatMedian.textContent = formatScatterStatValue(getQuantile(sortedValues, 0.5));
@@ -804,6 +807,7 @@ function renderScatterStats() {
     refs.scatterStatP25.textContent = formatScatterStatValue(getQuantile(sortedValues, 0.25));
     refs.scatterStatMax.textContent = formatScatterStatValue(sortedValues[sortedValues.length - 1]);
     refs.scatterStatMin.textContent = formatScatterStatValue(sortedValues[0]);
+    refs.scatterStatRatio.textContent = formatScatterStatValue(yValues.length / rawData.length);
 }
 
 // 读取3D散点图的过滤条件并应用到原始数据
