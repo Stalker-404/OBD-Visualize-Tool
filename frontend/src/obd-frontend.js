@@ -54,6 +54,7 @@ function initRefs() {
     refs.scatter3DZ = document.getElementById('scatter3DZ'); // 3D散点图 Z 轴列下拉框
     refs.scatter3DColorScale = document.getElementById('scatter3DColorScale'); // 3D散点图颜色系列下拉框
     refs.columnSearch = document.getElementById('columnSearch'); // 列筛选搜索输入框
+    refs.lineFilterList = document.getElementById('lineFilterList'); // 折线图突出显示条件列表容器
     refs.filterList = document.getElementById('filterList'); // 2D散点图过滤条件列表容器
     refs.filterList3D = document.getElementById('filterList3D'); // 3D散点图过滤条件列表容器
     refs.mainChart = document.getElementById('mainChart'); // 主图表 Canvas
@@ -298,6 +299,35 @@ const cursorPlugin = {
         ctx.lineWidth = 2; ctx.strokeStyle = '#ef4444'; ctx.setLineDash([6, 4]);
         ctx.moveTo(chart.cursorX, top); ctx.lineTo(chart.cursorX, bottom);
         ctx.stroke(); ctx.restore();
+    }
+};
+
+const lineFilterBackgroundPlugin = {
+    id: 'lineFilterBackgroundPlugin',
+    beforeDatasetsDraw: (chart) => {
+        if (activeTab !== 'line') return;
+
+        const ranges = chart?.options?.plugins?.lineFilterBackground?.ranges;
+        if (!Array.isArray(ranges) || !ranges.length || !chart.chartArea) return;
+
+        const { ctx, chartArea, scales } = chart;
+        const xScale = scales?.x;
+        if (!xScale) return;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.6)';
+
+        ranges.forEach(range => {
+            const start = Math.max(range.start, xScale.min);
+            const end = Math.min(range.end, xScale.max);
+            if (!(end > start)) return;
+
+            const left = xScale.getPixelForValue(start);
+            const right = xScale.getPixelForValue(end);
+            ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
+        });
+
+        ctx.restore();
     }
 };
 
@@ -581,14 +611,12 @@ function filterColumns() {
     });
 }
 
-// 添加过滤条件
-function addFilter() {
-    const id = Date.now(); // 使用时间戳作为唯一ID
+function createFilterItem(id, removeHandlerName) {
     const div = document.createElement('div');
-    div.id = `filter-${id}`;
+    div.id = id;
     div.className = 'bg-slate-50 p-2 rounded border border-slate-200 text-[11px] mb-2 shadow-sm';
-    let colOpts = headers.map((h, i) => `<option value="${i}">${h}</option>`).join('');
-    // 构建过滤条件的HTML结构
+    const colOpts = headers.map((h, i) => `<option value="${i}">${h}</option>`).join('');
+
     div.innerHTML = `
         <select class="f-col axis-input mb-1">${colOpts}</select>
         <div class="flex gap-1">
@@ -598,37 +626,54 @@ function addFilter() {
                 <option value="!=">!=</option>
             </select>
             <input type="number" class="f-val axis-input" placeholder="值">
-            <button onclick="removeFilter(${id})" class="text-red-500 font-bold px-1 text-lg">×</button>
+            <button onclick="${removeHandlerName}" class="text-red-500 font-bold px-1 text-lg">×</button>
         </div>`;
-    // 将新过滤条件添加到列表中
-        refs.filterList.appendChild(div);
-    // 为新添加的过滤条件绑定输入事件，任何输入变化都触发图表更新
+
     div.querySelectorAll('select, input').forEach(el => el.oninput = updateCharts);
+    return div;
+}
+
+function getFilterItems(containerSelector) {
+    return Array.from(document.querySelectorAll(`${containerSelector} > div`)).map(div => ({
+        col: parseInt(div.querySelector('.f-col').value, 10),
+        op: div.querySelector('.f-op').value,
+        val: parseFloat(div.querySelector('.f-val').value)
+    })).filter(f => !Number.isNaN(f.val));
+}
+
+function evaluateFilterCondition(value, filter) {
+    if (filter.op === '>') return value > filter.val;
+    if (filter.op === '<') return value < filter.val;
+    if (filter.op === '>=') return value >= filter.val;
+    if (filter.op === '<=') return value <= filter.val;
+    if (filter.op === '!=') return value != filter.val;
+    return true;
+}
+
+function addLineFilter() {
+    const id = Date.now();
+    const div = createFilterItem(`line-filter-${id}`, `removeLineFilter(${id})`);
+    refs.lineFilterList.appendChild(div);
+}
+
+// 添加过滤条件
+function addFilter() {
+    const id = Date.now();
+    const div = createFilterItem(`filter-${id}`, `removeFilter(${id})`);
+    refs.filterList.appendChild(div);
 }
 
 // 添加3D散点图过滤条件
 function addFilter3D() {
-    const id = Date.now(); // 使用时间戳作为唯一ID
-    const div = document.createElement('div');
-    div.id = `filter3d-${id}`;
-    div.className = 'bg-slate-50 p-2 rounded border border-slate-200 text-[11px] mb-2 shadow-sm';
-    let colOpts = headers.map((h, i) => `<option value="${i}">${h}</option>`).join('');
-    // 构建过滤条件的HTML结构
-    div.innerHTML = `
-        <select class="f-col axis-input mb-1">${colOpts}</select>
-        <div class="flex gap-1">
-            <select class="f-op axis-input">
-                <option value=">">></option><option value="<"><</option>
-                <option value=">=">>=</option><option value="<="><=</option>
-                <option value="!=">!=</option>
-            </select>
-            <input type="number" class="f-val axis-input" placeholder="值">
-            <button onclick="removeFilter3D(${id})" class="text-red-500 font-bold px-1 text-lg">×</button>
-        </div>`;
-    // 将新过滤条件添加到列表中
-        refs.filterList3D.appendChild(div);
-    // 为新添加的过滤条件绑定输入事件，任何输入变化都触发图表更新
-    div.querySelectorAll('select, input').forEach(el => el.oninput = updateCharts);
+    const id = Date.now();
+    const div = createFilterItem(`filter3d-${id}`, `removeFilter3D(${id})`);
+    refs.filterList3D.appendChild(div);
+}
+
+function removeLineFilter(id) {
+    const target = refs.lineFilterList.querySelector(`#line-filter-${id}`);
+    if (target) target.remove();
+    updateCharts();
 }
 
 // 删除过滤条件
@@ -658,6 +703,10 @@ function applyLineChartConfig(config, customL, customR, isSeparated) {
     // 更新全局时间范围，供时间滑块使用
     totalTimeRange.min = Math.min(...timeData);
     totalTimeRange.max = Math.max(...timeData);
+    const lineFilterItems = getFilterItems('#lineFilterList');
+    config.options.plugins.lineFilterBackground = {
+        ranges: getLineFilterHighlightRanges(timeData, lineFilterItems)
+    };
 
     document.querySelectorAll('.col-check:checked').forEach((chk, idx) => {
         const colIdx = chk.value;
@@ -718,23 +767,47 @@ function applyScatterChartConfig(config) {
 
 // 读取“维度与过滤”面板中的过滤条件并应用到原始数据
 function getFilteredRawData() {
-    const filterItems = Array.from(document.querySelectorAll('#filterList > div')).map(div => ({
-        col: parseInt(div.querySelector('.f-col').value),
-        op: div.querySelector('.f-op').value,
-        val: parseFloat(div.querySelector('.f-val').value)
-    })).filter(f => !isNaN(f.val));
+    const filterItems = getFilterItems('#filterList');
 
     return rawData.filter(row => {
-        return filterItems.every(f => {
-            const v = row[f.col];
-            if (f.op === '>') return v > f.val;
-            if (f.op === '<') return v < f.val;
-            if (f.op === '>=') return v >= f.val;
-            if (f.op === '<=') return v <= f.val;
-            if (f.op === '!=') return v != f.val;
-            return true;
-        });
+        return filterItems.every(f => evaluateFilterCondition(row[f.col], f));
     });
+}
+
+function getLineFilterHighlightRanges(timeData, filterItems) {
+    if (!Array.isArray(timeData) || timeData.length === 0 || !filterItems.length) {
+        return [];
+    }
+
+    const ranges = [];
+    let rangeStart = null;
+    let previousRight = null;
+
+    rawData.forEach((row, index) => {
+        const isMatched = filterItems.every(f => evaluateFilterCondition(row[f.col], f));
+        const leftBoundary = index === 0 ? timeData[index] : (timeData[index - 1] + timeData[index]) / 2;
+        const rightBoundary = index === timeData.length - 1 ? timeData[index] : (timeData[index] + timeData[index + 1]) / 2;
+
+        if (isMatched) {
+            if (rangeStart === null) {
+                rangeStart = leftBoundary;
+            }
+            previousRight = rightBoundary;
+            return;
+        }
+
+        if (rangeStart !== null && previousRight !== null) {
+            ranges.push({ start: rangeStart, end: previousRight });
+            rangeStart = null;
+            previousRight = null;
+        }
+    });
+
+    if (rangeStart !== null && previousRight !== null) {
+        ranges.push({ start: rangeStart, end: previousRight });
+    }
+
+    return ranges.filter(range => range.end > range.start);
 }
 
 function getFilteredScatterYValues() {
@@ -812,22 +885,10 @@ function renderScatterStats() {
 
 // 读取3D散点图的过滤条件并应用到原始数据
 function getFilteredRawData3D() {
-    const filterItems = Array.from(document.querySelectorAll('#filterList3D > div')).map(div => ({
-        col: parseInt(div.querySelector('.f-col').value),
-        op: div.querySelector('.f-op').value,
-        val: parseFloat(div.querySelector('.f-val').value)
-    })).filter(f => !isNaN(f.val));
+    const filterItems = getFilterItems('#filterList3D');
 
     return rawData.filter(row => {
-        return filterItems.every(f => {
-            const v = row[f.col];
-            if (f.op === '>') return v > f.val;
-            if (f.op === '<') return v < f.val;
-            if (f.op === '>=') return v >= f.val;
-            if (f.op === '<=') return v <= f.val;
-            if (f.op === '!=') return v != f.val;
-            return true;
-        });
+        return filterItems.every(f => evaluateFilterCondition(row[f.col], f));
     });
 }
 
@@ -932,7 +993,7 @@ function updateCharts() {
     const config = {
         type: activeTab === 'line' ? 'line' : 'scatter',
         data: { datasets: [] },
-        plugins: [cursorPlugin],
+        plugins: [lineFilterBackgroundPlugin, cursorPlugin],
         options: {
             responsive: true, maintainAspectRatio: false, animation: false,
             onHover: (e) => handleChartHover(e),
